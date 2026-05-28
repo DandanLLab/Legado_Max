@@ -93,7 +93,7 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE bookUrl = :bookUrl")
     fun getBook(bookUrl: String): Book?
 
-    @Query("SELECT * FROM books WHERE name = :name and author = :author")
+    @Query("SELECT * FROM books WHERE name = :name and author = :author LIMIT 1")
     fun getBook(name: String, author: String): Book?
 
     @Query("SELECT * FROM books WHERE name = :name LIMIT 1")
@@ -202,4 +202,19 @@ interface BookDao {
 
     @Query("delete from books where type & ${BookType.notShelf} > 0")
     fun deleteNotShelfBook()
+
+    @Query("SELECT * FROM books WHERE sourceGroupId = :sourceGroupId")
+    fun getBySourceGroupId(sourceGroupId: Long): List<Book>
+
+    @Query("SELECT * FROM books WHERE name = :name and author = :author")
+    fun getBooksByNameAuthor(name: String, author: String): List<Book>
+
+    @Query("SELECT * FROM books WHERE sourceGroupId = :sourceGroupId and totalChapterNum = (SELECT MAX(totalChapterNum) FROM books WHERE sourceGroupId = :sourceGroupId) LIMIT 1")
+    fun getBestBookBySourceGroupId(sourceGroupId: Long): Book?
+
+    @Query("update books set sourceGroupId = :sourceGroupId where bookUrl = :bookUrl")
+    fun upSourceGroupId(bookUrl: String, sourceGroupId: Long)
+
+    @Query("update books set sourceGroupId = :sourceGroupId where name = :name and author = :author")
+    fun upSourceGroupIdByNameAuthor(name: String, author: String, sourceGroupId: Long)
 }

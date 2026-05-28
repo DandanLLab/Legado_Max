@@ -35,7 +35,7 @@ class BooksAdapterList(
             tvName.text = item.name
             tvAuthor.text = item.author
             tvRead.text = item.durChapterTitle
-            tvLast.text = item.latestChapterTitle
+            tvLast.text = item.getBestLatestChapterTitle() ?: item.latestChapterTitle
             ivCover.load(item, false)
             upRefresh(binding, item)
             upLastUpdateTime(binding, item)
@@ -47,7 +47,7 @@ class BooksAdapterList(
                         "name" -> tvName.text = item.name
                         "author" -> tvAuthor.text = item.author
                         "dur" -> tvRead.text = item.durChapterTitle
-                        "last" -> tvLast.text = item.latestChapterTitle
+                        "last" -> tvLast.text = item.getBestLatestChapterTitle() ?: item.latestChapterTitle
                         "cover" -> ivCover.load(
                             item,
                             false,

@@ -17,6 +17,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.BookSourceGroup
 import io.legado.app.exception.NoBooksDirException
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.AppWebDav
@@ -414,6 +415,31 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
         val dbTotalChapterNumAfter = dbBookAfter?.totalChapterNum
         AppLog.put("[saveShelfBook] 保存后验证: DB最新章节=$dbLatestChapterTitleAfter, DB总章节数=$dbTotalChapterNumAfter, 是否一致=${dbLatestChapterTitleAfter == syncedLatestChapterTitle && dbTotalChapterNumAfter == syncedTotalChapterNum}")
+        
+        upBookSourceGroup(book)
+    }
+    
+    private fun upBookSourceGroup(book: Book) {
+        val existingGroup = if (book.sourceGroupId > 0) {
+            appDb.bookSourceGroupDao.getByGroupId(book.sourceGroupId)
+        } else {
+            appDb.bookSourceGroupDao.getByNameAuthor(book.name, book.author)
+        }
+        val books = appDb.bookDao.getBooksByNameAuthor(book.name, book.author)
+        val group = existingGroup ?: BookSourceGroup(
+            name = book.name,
+            author = book.author
+        )
+        group.upBestFromBooks(books)
+        if (group.groupId > 0) {
+            appDb.bookSourceGroupDao.update(group)
+        } else {
+            appDb.bookSourceGroupDao.insert(group)
+            val savedGroup = appDb.bookSourceGroupDao.getByNameAuthor(book.name, book.author)
+            if (savedGroup != null) {
+                appDb.bookDao.upSourceGroupIdByNameAuthor(book.name, book.author, savedGroup.groupId)
+            }
+        }
     }
 
     private fun replaceBookChapters(oldBook: Book, chapters: List<BookChapter>) {

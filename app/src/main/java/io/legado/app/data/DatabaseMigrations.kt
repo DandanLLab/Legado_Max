@@ -20,7 +20,8 @@ object DatabaseMigrations {
             migration_31_32, migration_32_33, migration_33_34, migration_34_35,
             migration_35_36, migration_36_37, migration_37_38, migration_38_39,
             migration_39_40, migration_40_41, migration_41_42, migration_42_43,
-            migration_95_96
+            migration_95_96,
+            migration_96_97
         )
     }
 
@@ -530,6 +531,92 @@ object DatabaseMigrations {
                     }
                 }
             }
+        }
+    }
+
+    private val migration_96_97 = object : Migration(96, 97) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `book_source_groups` (
+                    `groupId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL DEFAULT 0,
+                    `name` TEXT NOT NULL DEFAULT '',
+                    `author` TEXT NOT NULL DEFAULT '',
+                    `coverUrl` TEXT,
+                    `intro` TEXT,
+                    `group` INTEGER NOT NULL DEFAULT 0,
+                    `bestBookUrl` TEXT,
+                    `bestTotalChapterNum` INTEGER NOT NULL DEFAULT 0,
+                    `bestLatestChapterTitle` TEXT,
+                    `bestLatestChapterTime` INTEGER NOT NULL DEFAULT 0,
+                    `sourceCount` INTEGER NOT NULL DEFAULT 0,
+                    `activeSourceCount` INTEGER NOT NULL DEFAULT 0
+                )
+            """.trimIndent())
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_book_source_groups_name_author` ON `book_source_groups` (`name`, `author`)")
+
+            db.execSQL("ALTER TABLE books ADD COLUMN sourceGroupId INTEGER NOT NULL DEFAULT 0")
+
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_books_sourceGroupId` ON `books` (`sourceGroupId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_books_origin` ON `books` (`origin`)")
+
+            db.beginTransaction()
+            try {
+                db.execSQL("""
+                    INSERT INTO book_source_groups (name, author, coverUrl, intro, `group`, bestBookUrl, bestTotalChapterNum, bestLatestChapterTitle, bestLatestChapterTime, sourceCount, activeSourceCount)
+                    SELECT b.name, b.author, b.coverUrl, b.intro, b.`group`, b.bookUrl, b.totalChapterNum, b.latestChapterTitle, b.latestChapterTime, 1,
+                        CASE WHEN b.type & ${BookType.local} = 0 AND b.canUpdate = 1 THEN 1 ELSE 0 END
+                    FROM books b
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM book_source_groups bsg WHERE bsg.name = b.name AND bsg.author = b.author
+                    )
+                """.trimIndent())
+
+                val cursor = db.query("SELECT groupId, name, author FROM book_source_groups")
+                while (cursor.moveToNext()) {
+                    val groupId = cursor.getLong(0)
+                    val name = cursor.getString(1)
+                    val author = cursor.getString(2)
+                    db.execSQL(
+                        "UPDATE books SET sourceGroupId = ? WHERE name = ? AND author = ?",
+                        arrayOf(groupId, name, author)
+                    )
+                }
+                cursor.close()
+
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS `books_new` (
+                    `bookUrl` TEXT NOT NULL, `tocUrl` TEXT NOT NULL, `origin` TEXT NOT NULL DEFAULT '${BookType.localTag}',
+                    `originName` TEXT NOT NULL DEFAULT '', `name` TEXT NOT NULL DEFAULT '', `author` TEXT NOT NULL DEFAULT '',
+                    `kind` TEXT, `customTag` TEXT, `coverUrl` TEXT, `customCoverUrl` TEXT, `intro` TEXT, `customIntro` TEXT,
+                    `charset` TEXT, `type` INTEGER NOT NULL DEFAULT 0, `group` INTEGER NOT NULL DEFAULT 0,
+                    `sourceGroupId` INTEGER NOT NULL DEFAULT 0, `latestChapterTitle` TEXT,
+                    `latestChapterTime` INTEGER NOT NULL DEFAULT 0, `lastCheckTime` INTEGER NOT NULL DEFAULT 0,
+                    `lastCheckCount` INTEGER NOT NULL DEFAULT 0, `totalChapterNum` INTEGER NOT NULL DEFAULT 0,
+                    `durChapterTitle` TEXT, `durChapterIndex` INTEGER NOT NULL DEFAULT 0, `durChapterPos` INTEGER NOT NULL DEFAULT 0,
+                    `durChapterTime` INTEGER NOT NULL DEFAULT 0, `wordCount` TEXT, `canUpdate` INTEGER NOT NULL DEFAULT 1,
+                    `order` INTEGER NOT NULL DEFAULT 0, `originOrder` INTEGER NOT NULL DEFAULT 0,
+                    `useReplaceRule` INTEGER NOT NULL DEFAULT 0, `variable` TEXT, `readConfig` TEXT,
+                    PRIMARY KEY(`bookUrl`)
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO books_new SELECT
+                    bookUrl, tocUrl, origin, originName, name, author, kind, customTag, coverUrl, customCoverUrl,
+                    intro, customIntro, charset, type, `group`, sourceGroupId, latestChapterTitle, latestChapterTime,
+                    lastCheckTime, lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex, durChapterPos,
+                    durChapterTime, wordCount, canUpdate, `order`, originOrder, useReplaceRule, variable, readConfig
+                FROM books
+            """.trimIndent())
+            db.execSQL("DROP TABLE books")
+            db.execSQL("ALTER TABLE books_new RENAME TO books")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_books_name_author` ON `books` (`name`, `author`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_books_sourceGroupId` ON `books` (`sourceGroupId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_books_origin` ON `books` (`origin`)")
         }
     }
 

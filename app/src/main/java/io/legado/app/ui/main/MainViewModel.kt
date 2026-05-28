@@ -13,6 +13,7 @@ import io.legado.app.constant.EventBus
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookSource
+import io.legado.app.data.entities.BookSourceGroup
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.DefaultData
 import io.legado.app.help.book.BookHelp
@@ -240,6 +241,7 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
                 appDb.bookChapterDao.insert(*toc.toTypedArray())
                 ReadBook.onChapterListUpdated(book)
                 addDownload(source, book)
+                upBookSourceGroup(book)
                 logUpdate("✅ 任务完成（书源${source.bookSourceName}，书籍《${book.name}》）：更新成功")
             }.onFailure {
                 currentCoroutineContext().ensureActive()
@@ -252,6 +254,29 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
         } finally {
             semaphore.release()
             logUpdate("🔓 信号量释放（书源${source.bookSourceName}，书籍《${book.name}》）：允许下一个任务执行", verbose = true)
+        }
+    }
+
+    private fun upBookSourceGroup(book: Book) {
+        val existingGroup = if (book.sourceGroupId > 0) {
+            appDb.bookSourceGroupDao.getByGroupId(book.sourceGroupId)
+        } else {
+            appDb.bookSourceGroupDao.getByNameAuthor(book.name, book.author)
+        }
+        val books = appDb.bookDao.getBooksByNameAuthor(book.name, book.author)
+        val group = existingGroup ?: BookSourceGroup(
+            name = book.name,
+            author = book.author
+        )
+        group.upBestFromBooks(books)
+        if (group.groupId > 0) {
+            appDb.bookSourceGroupDao.update(group)
+        } else {
+            appDb.bookSourceGroupDao.insert(group)
+            val savedGroup = appDb.bookSourceGroupDao.getByNameAuthor(book.name, book.author)
+            if (savedGroup != null) {
+                appDb.bookDao.upSourceGroupIdByNameAuthor(book.name, book.author, savedGroup.groupId)
+            }
         }
     }
 

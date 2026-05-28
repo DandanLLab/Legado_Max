@@ -33,17 +33,16 @@ import kotlin.math.max
 @TypeConverters(Book.Converters::class)
 @Entity(
     tableName = "books",
-    indices = [Index(value = ["name", "author"], unique = true)]
+    indices = [Index(value = ["name", "author"], unique = false),
+        Index(value = ["sourceGroupId"], unique = false),
+        Index(value = ["origin"], unique = false)]
 )
 data class Book(
-    // 详情页Url(本地书源存储完整文件路径)
     @PrimaryKey
     @ColumnInfo(defaultValue = "")
     override var bookUrl: String = "",
-    // 目录页Url (toc=table of Contents)
     @ColumnInfo(defaultValue = "")
     var tocUrl: String = "",
-    // 书源URL(默认BookType.local)
     @ColumnInfo(defaultValue = BookType.localTag)
     var origin: String = BookType.localTag,
     //书源名称 or 本地书籍文件名
@@ -72,10 +71,10 @@ data class Book(
     // 类型,详见BookType
     @ColumnInfo(defaultValue = "0")
     var type: Int = BookType.text,
-    // 自定义分组索引号
     @ColumnInfo(defaultValue = "0")
     var group: Long = 0,
-    // 最新章节标题
+    @ColumnInfo(defaultValue = "0")
+    var sourceGroupId: Long = 0,
     var latestChapterTitle: String? = null,
     // 最新章节标题更新时间
     @ColumnInfo(defaultValue = "0")
@@ -169,6 +168,19 @@ data class Book(
     fun getUnreadChapterNum() = max(simulatedTotalChapterNum() - durChapterIndex - 1, 0)
 
     fun getDisplayCover() = if (customCoverUrl.isNullOrEmpty()) coverUrl else customCoverUrl
+
+    fun getSourceGroupInfo(): String? {
+        if (sourceGroupId <= 0) return null
+        val group = appDb.bookSourceGroupDao.getByGroupId(sourceGroupId) ?: return null
+        if (group.sourceCount <= 1) return null
+        return "${group.sourceCount}源"
+    }
+
+    fun getBestLatestChapterTitle(): String? {
+        if (sourceGroupId <= 0) return latestChapterTitle
+        val group = appDb.bookSourceGroupDao.getByGroupId(sourceGroupId) ?: return latestChapterTitle
+        return group.bestLatestChapterTitle ?: latestChapterTitle
+    }
 
     fun getDisplayIntro() = if (customIntro.isNullOrEmpty()) intro else customIntro
 
