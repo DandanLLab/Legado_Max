@@ -216,12 +216,13 @@ object BookChapterList {
         book.lastCheckTime = System.currentTimeMillis()
         book.totalChapterNum = list.size
         book.latestChapterTitle =
-            list.getOrElse(book.simulatedTotalChapterNum() - 1) { list.last() }
+            list.last()
                 .getDisplayTitle(
                     replaceRules,
                     book.getUseReplaceRule(),
                     replaceBook = replaceBook
                 )
+        AppLog.put("[finalizeChapterList] 设置latestChapterTitle: list.size=${list.size}, 最新章节=${list.last().title}, simulatedTotalChapterNum=${book.simulatedTotalChapterNum()}")
         currentCoroutineContext().ensureActive()
         upChapterInfo(list, book)
         
@@ -499,12 +500,13 @@ object BookChapterList {
         book.lastCheckTime = System.currentTimeMillis()
         book.totalChapterNum = list.size
         book.latestChapterTitle =
-            list.getOrElse(book.simulatedTotalChapterNum() - 1) { list.last() }
+            list.last()
                 .getDisplayTitle(
                     replaceRules,
                     book.getUseReplaceRule(),
                     replaceBook = replaceBook
                 )
+        AppLog.put("[finalizeChapterList] 设置latestChapterTitle: list.size=${list.size}, 最新章节=${list.last().title}, simulatedTotalChapterNum=${book.simulatedTotalChapterNum()}")
         upChapterInfo(list, book)
         
         val dataFlowFields = mutableListOf<FieldFillRecord>()
