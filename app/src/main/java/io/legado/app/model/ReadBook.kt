@@ -1143,10 +1143,16 @@ object ReadBook : CoroutineScope by MainScope() {
         if (System.currentTimeMillis() - book.lastCheckTime < ReadConstants.TOC_UPDATE_MIN_INTERVAL_MS) return
         book.lastCheckTime = System.currentTimeMillis()
         val oldBook = book.copy()
+        val oldLatestChapterTitle = oldBook.latestChapterTitle
+        AppLog.put("[upToc] 开始更新目录: 内存oldLatestChapterTitle=$oldLatestChapterTitle, chapterSize=$chapterSize")
+        
         WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->
             ensureActive()
             val hasNewChapters = cList.size > chapterSize
+            val newLatestChapterTitle = book.latestChapterTitle
             val latestChapterChanged = book.latestChapterTitle != oldBook.latestChapterTitle
+            AppLog.put("[upToc] 目录解析完成: 新章节数=${cList.size}, 内存新latestChapterTitle=$newLatestChapterTitle, 旧latestChapterTitle=$oldLatestChapterTitle, hasNewChapters=$hasNewChapters, latestChapterChanged=$latestChapterChanged")
+            
             if (hasNewChapters || latestChapterChanged) {
                 if (oldBook.bookUrl == book.bookUrl) {
                     appDb.bookDao.update(book)
@@ -1156,8 +1162,15 @@ object ReadBook : CoroutineScope by MainScope() {
                 }
                 appDb.bookChapterDao.delByBook(oldBook.bookUrl)
                 appDb.bookChapterDao.insert(*cList.toTypedArray())
+                
+                val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
+                val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
+                AppLog.put("[upToc] 更新后验证: DB最新章节=$dbLatestChapterTitleAfter, 写入值=$newLatestChapterTitle, 是否一致=${dbLatestChapterTitleAfter == newLatestChapterTitle}")
+                
                 onChapterListUpdated(book, false)
                 nextTextChapter ?: loadContent(durChapterIndex + 1)
+            } else {
+                AppLog.put("[upToc] 无需更新: hasNewChapters=false, latestChapterChanged=false")
             }
         }
     }
@@ -1178,6 +1191,11 @@ object ReadBook : CoroutineScope by MainScope() {
         val book = book ?: return
         executor.execute {
             kotlin.runCatching {
+                val dbBookBefore = appDb.bookDao.getBook(book.bookUrl)
+                val memLatestChapterTitle = book.latestChapterTitle
+                val dbLatestChapterTitleBefore = dbBookBefore?.latestChapterTitle
+                AppLog.put("[saveRead] 保存前对比: 内存latestChapterTitle=$memLatestChapterTitle, DB最新章节=$dbLatestChapterTitleBefore, 是否一致=${memLatestChapterTitle == dbLatestChapterTitleBefore}")
+                
                 book.lastCheckCount = 0
                 val durTime = System.currentTimeMillis()
                 book.durChapterTime = durTime
@@ -1205,6 +1223,10 @@ object ReadBook : CoroutineScope by MainScope() {
                     durVolumeIndex = book.durVolumeIndex,
                     chapterInVolumeIndex = book.chapterInVolumeIndex
                 )
+                
+                val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
+                val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
+                AppLog.put("[saveRead] 保存后验证: DB最新章节=$dbLatestChapterTitleAfter, 保存前=$dbLatestChapterTitleBefore, 是否被覆盖=${dbLatestChapterTitleAfter != dbLatestChapterTitleBefore}")
             }.onFailure {
                 AppLog.put("保存书籍阅读进度信息出错\n$it", it)
             }

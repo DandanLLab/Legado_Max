@@ -371,16 +371,30 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         book: Book,
         removeUpdateError: Boolean = false
     ) {
+        val dbBookBefore = appDb.bookDao.getBook(book.bookUrl)
+        val oldLatestChapterTitle = oldBook.latestChapterTitle
+        val newLatestChapterTitle = book.latestChapterTitle
+        val dbLatestChapterTitleBefore = dbBookBefore?.latestChapterTitle
+        AppLog.put("[saveShelfBook] 保存前对比: oldBook.latestChapterTitle=$oldLatestChapterTitle, book.latestChapterTitle=$newLatestChapterTitle, DB最新章节=$dbLatestChapterTitleBefore")
+        
         book.sync(oldBook)
         if (removeUpdateError) {
             book.removeType(BookType.updateError)
         }
+        
+        val syncedLatestChapterTitle = book.latestChapterTitle
+        AppLog.put("[saveShelfBook] sync后: book.latestChapterTitle=$syncedLatestChapterTitle (sync是否会覆盖latestChapterTitle)")
+        
         if (oldBook.bookUrl == book.bookUrl) {
             appDb.bookDao.update(book)
         } else {
             appDb.bookDao.replace(oldBook, book)
             BookHelp.updateCacheFolder(oldBook, book)
         }
+        
+        val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
+        val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
+        AppLog.put("[saveShelfBook] 保存后验证: DB最新章节=$dbLatestChapterTitleAfter, 写入值=$syncedLatestChapterTitle, 是否一致=${dbLatestChapterTitleAfter == syncedLatestChapterTitle}")
     }
 
     private fun replaceBookChapters(oldBook: Book, chapters: List<BookChapter>) {
