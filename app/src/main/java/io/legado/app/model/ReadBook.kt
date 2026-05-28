@@ -1148,56 +1148,59 @@ object ReadBook : CoroutineScope by MainScope() {
         val oldTocUrl = oldBook.tocUrl
         book.infoHtml = null
         book.tocHtml = null
-        AppLog.put("[upToc] 开始更新目录: 内存oldLatestChapterTitle=$oldLatestChapterTitle, 内存oldTotalChapterNum=$oldTotalChapterNum, chapterSize=$chapterSize")
+        AppLog.put("[upToc] 开始更新目录: 内存oldLatestChapterTitle=$oldLatestChapterTitle, 内存oldTotalChapterNum=$oldTotalChapterNum, oldTocUrl=$oldTocUrl, chapterSize=$chapterSize")
         
-        WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->
-            ensureActive()
-            val newTotalChapterNum = cList.size
-            val newLatestChapterTitle = book.latestChapterTitle
-            
-            // 智能对比：从数据库获取当前数据，对比是否需要更新
-            val dbBookBefore = appDb.bookDao.getBook(book.bookUrl)
-            val dbTotalChapterNumBefore = dbBookBefore?.totalChapterNum ?: 0
-            val dbLatestChapterTitleBefore = dbBookBefore?.latestChapterTitle
-            
-            AppLog.put("[upToc] 目录解析完成: 新章节数=$newTotalChapterNum, 新latestChapterTitle=$newLatestChapterTitle, DB章节数=$dbTotalChapterNumBefore, DB最新章节=$dbLatestChapterTitleBefore")
-            
-            // 智能对比：如果数据库中的章节数更大，保留数据库中的最新章节信息
-            if (dbTotalChapterNumBefore > newTotalChapterNum) {
-                AppLog.put("[upToc] DB章节数($dbTotalChapterNumBefore) > 新获取章节数($newTotalChapterNum)，保留DB数据，不更新")
-                return@onSuccess
+        WebBook.getBookInfo(this, bookSource, book).onSuccess(IO) {
+            if (book.tocUrl != oldTocUrl) {
+                AppLog.put("[upToc] tocUrl已更新: 旧=$oldTocUrl, 新=${book.tocUrl}")
             }
-            
-            // 如果章节数相同，对比最新章节标题
-            if (dbTotalChapterNumBefore == newTotalChapterNum && dbLatestChapterTitleBefore != null) {
-                if (dbLatestChapterTitleBefore.isNotEmpty() && newLatestChapterTitle == dbLatestChapterTitleBefore) {
-                    AppLog.put("[upToc] 章节数相同($dbTotalChapterNumBefore)，最新章节也相同，无需更新")
+            book.tocHtml = null
+            WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->
+                ensureActive()
+                val newTotalChapterNum = cList.size
+                val newLatestChapterTitle = book.latestChapterTitle
+                
+                val dbBookBefore = appDb.bookDao.getBook(book.bookUrl)
+                val dbTotalChapterNumBefore = dbBookBefore?.totalChapterNum ?: 0
+                val dbLatestChapterTitleBefore = dbBookBefore?.latestChapterTitle
+                
+                AppLog.put("[upToc] 目录解析完成: 新章节数=$newTotalChapterNum, 新latestChapterTitle=$newLatestChapterTitle, DB章节数=$dbTotalChapterNumBefore, DB最新章节=$dbLatestChapterTitleBefore")
+                
+                if (dbTotalChapterNumBefore > newTotalChapterNum) {
+                    AppLog.put("[upToc] DB章节数($dbTotalChapterNumBefore) > 新获取章节数($newTotalChapterNum)，保留DB数据，不更新")
                     return@onSuccess
                 }
-            }
-            
-            val hasNewChapters = newTotalChapterNum > chapterSize
-            val latestChapterChanged = newLatestChapterTitle != oldLatestChapterTitle
-            
-            if (hasNewChapters || latestChapterChanged) {
-                if (oldBook.bookUrl == book.bookUrl) {
-                    appDb.bookDao.update(book)
-                } else {
-                    appDb.bookDao.replace(oldBook, book)
-                    BookHelp.updateCacheFolder(oldBook, book)
+                
+                if (dbTotalChapterNumBefore == newTotalChapterNum && dbLatestChapterTitleBefore != null) {
+                    if (dbLatestChapterTitleBefore.isNotEmpty() && newLatestChapterTitle == dbLatestChapterTitleBefore) {
+                        AppLog.put("[upToc] 章节数相同($dbTotalChapterNumBefore)，最新章节也相同，无需更新")
+                        return@onSuccess
+                    }
                 }
-                appDb.bookChapterDao.delByBook(oldBook.bookUrl)
-                appDb.bookChapterDao.insert(*cList.toTypedArray())
                 
-                val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
-                val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
-                val dbTotalChapterNumAfter = dbBookAfter?.totalChapterNum
-                AppLog.put("[upToc] 更新后验证: DB最新章节=$dbLatestChapterTitleAfter, DB总章节数=$dbTotalChapterNumAfter, 写入值=$newLatestChapterTitle, 是否一致=${dbLatestChapterTitleAfter == newLatestChapterTitle && dbTotalChapterNumAfter == newTotalChapterNum}")
+                val hasNewChapters = newTotalChapterNum > chapterSize
+                val latestChapterChanged = newLatestChapterTitle != oldLatestChapterTitle
                 
-                onChapterListUpdated(book, false)
-                nextTextChapter ?: loadContent(durChapterIndex + 1)
-            } else {
-                AppLog.put("[upToc] 无需更新: hasNewChapters=$hasNewChapters, latestChapterChanged=$latestChapterChanged")
+                if (hasNewChapters || latestChapterChanged) {
+                    if (oldBook.bookUrl == book.bookUrl) {
+                        appDb.bookDao.update(book)
+                    } else {
+                        appDb.bookDao.replace(oldBook, book)
+                        BookHelp.updateCacheFolder(oldBook, book)
+                    }
+                    appDb.bookChapterDao.delByBook(oldBook.bookUrl)
+                    appDb.bookChapterDao.insert(*cList.toTypedArray())
+                    
+                    val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
+                    val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
+                    val dbTotalChapterNumAfter = dbBookAfter?.totalChapterNum
+                    AppLog.put("[upToc] 更新后验证: DB最新章节=$dbLatestChapterTitleAfter, DB总章节数=$dbTotalChapterNumAfter, 写入值=$newLatestChapterTitle, 是否一致=${dbLatestChapterTitleAfter == newLatestChapterTitle && dbTotalChapterNumAfter == newTotalChapterNum}")
+                    
+                    onChapterListUpdated(book, false)
+                    nextTextChapter ?: loadContent(durChapterIndex + 1)
+                } else {
+                    AppLog.put("[upToc] 无需更新: hasNewChapters=$hasNewChapters, latestChapterChanged=$latestChapterChanged")
+                }
             }
         }
     }
