@@ -597,10 +597,13 @@ object DatabaseMigrations {
                     `sourceGroupId` INTEGER NOT NULL DEFAULT 0, `latestChapterTitle` TEXT,
                     `latestChapterTime` INTEGER NOT NULL DEFAULT 0, `lastCheckTime` INTEGER NOT NULL DEFAULT 0,
                     `lastCheckCount` INTEGER NOT NULL DEFAULT 0, `totalChapterNum` INTEGER NOT NULL DEFAULT 0,
-                    `durChapterTitle` TEXT, `durChapterIndex` INTEGER NOT NULL DEFAULT 0, `durChapterPos` INTEGER NOT NULL DEFAULT 0,
-                    `durChapterTime` INTEGER NOT NULL DEFAULT 0, `wordCount` TEXT, `canUpdate` INTEGER NOT NULL DEFAULT 1,
+                    `durChapterTitle` TEXT, `durChapterIndex` INTEGER NOT NULL DEFAULT 0,
+                    `durVolumeIndex` INTEGER NOT NULL DEFAULT 0, `chapterInVolumeIndex` INTEGER NOT NULL DEFAULT 0,
+                    `durChapterPos` INTEGER NOT NULL DEFAULT 0, `durChapterTime` INTEGER NOT NULL DEFAULT 0,
+                    `wordCount` TEXT, `canUpdate` INTEGER NOT NULL DEFAULT 1,
                     `order` INTEGER NOT NULL DEFAULT 0, `originOrder` INTEGER NOT NULL DEFAULT 0,
-                    `useReplaceRule` INTEGER NOT NULL DEFAULT 0, `variable` TEXT, `readConfig` TEXT,
+                    `variable` TEXT, `readConfig` TEXT,
+                    `syncTime` INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(`bookUrl`)
                 )
             """.trimIndent())
@@ -608,8 +611,9 @@ object DatabaseMigrations {
                 INSERT INTO books_new SELECT
                     bookUrl, tocUrl, origin, originName, name, author, kind, customTag, coverUrl, customCoverUrl,
                     intro, customIntro, charset, type, `group`, sourceGroupId, latestChapterTitle, latestChapterTime,
-                    lastCheckTime, lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex, durChapterPos,
-                    durChapterTime, wordCount, canUpdate, `order`, originOrder, useReplaceRule, variable, readConfig
+                    lastCheckTime, lastCheckCount, totalChapterNum, durChapterTitle, durChapterIndex,
+                    durVolumeIndex, chapterInVolumeIndex, durChapterPos, durChapterTime,
+                    wordCount, canUpdate, `order`, originOrder, variable, readConfig, syncTime
                 FROM books
             """.trimIndent())
             db.execSQL("DROP TABLE books")

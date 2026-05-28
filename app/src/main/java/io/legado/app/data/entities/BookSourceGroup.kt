@@ -25,7 +25,6 @@ data class BookSourceGroup(
     var intro: String? = null,
     @ColumnInfo(defaultValue = "0")
     var group: Long = 0,
-    @ColumnInfo(defaultValue = "0")
     var bestBookUrl: String? = null,
     @ColumnInfo(defaultValue = "0")
     var bestTotalChapterNum: Int = 0,
