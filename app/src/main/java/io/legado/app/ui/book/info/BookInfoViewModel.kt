@@ -359,7 +359,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         }
         book.lastCheckTime = System.currentTimeMillis()
         book.totalChapterNum = chapters.size
-        book.latestChapterTitle = chapters.getOrElse(book.simulatedTotalChapterNum() - 1) { chapters.last() }
+        book.latestChapterTitle = chapters.last()
             .getDisplayTitle(
                 replaceRules,
                 book.getUseReplaceRule(),

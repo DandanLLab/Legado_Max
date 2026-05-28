@@ -1154,7 +1154,6 @@ object ReadBook : CoroutineScope by MainScope() {
             if (book.tocUrl != oldTocUrl) {
                 AppLog.put("[upToc] tocUrl已更新: 旧=$oldTocUrl, 新=${book.tocUrl}")
             }
-            book.tocHtml = null
             WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->
                 ensureActive()
                 val newTotalChapterNum = cList.size

@@ -158,7 +158,7 @@ object LocalBook {
                 replaceBook = replaceBook
             )
         book.latestChapterTitle =
-            list.getOrElse(book.simulatedTotalChapterNum() - 1) { list.last() }
+            list.last()
                 .getDisplayTitle(
                     replaceRules,
                     book.getUseReplaceRule(),
