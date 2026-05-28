@@ -210,16 +210,16 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
                         inBookshelf = true
                     }
                     bookData.postValue(it)
-                    if (inBookshelf) {
-                        it.save()
-                    }
                     if (it.isWebFile) {
+                        if (inBookshelf) {
+                            it.save()
+                        }
                         AppLog.put("[TOC] loadBookInfo: isWebFile=true, 走loadWebFile分支")
                         loadWebFile(it)
                     } else {
                         AppLog.put("[TOC] loadBookInfo: 即将调用loadChapter, isLocal=${it.isLocal}, bookSource=${bookSource != null}")
                         try {
-                            loadChapter(it, runPreUpdateJs, isFromBookInfo = true)
+                            loadChapter(it, runPreUpdateJs, isFromBookInfo = true, saveOnComplete = inBookshelf)
                             AppLog.put("[TOC] loadChapter调用完成")
                         } catch (e: Throwable) {
                             AppLog.put("[TOC] loadChapter调用异常: ${e.localizedMessage}", e)
@@ -239,7 +239,8 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         book: Book,
         runPreUpdateJs: Boolean = true,
         scope: CoroutineScope = viewModelScope,
-        isFromBookInfo: Boolean = false
+        isFromBookInfo: Boolean = false,
+        saveOnComplete: Boolean = false
     ) {
         AppLog.put("[TOC] loadChapter入口A")
         AppLog.put("[TOC] loadChapter入口B: bookUrl=" + book.bookUrl)
@@ -284,7 +285,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
                             if (partial.isComplete) {
                                 updatePartialBookChapterSummary(book, chapters, oldBook.totalChapterNum)
                                 // 目录全部加载完成
-                                if (inBookshelf) {
+                                if (saveOnComplete || inBookshelf) {
                                     saveShelfBook(oldBook, book, removeUpdateError = true)
                                 } else {
                                     book.addType(BookType.notShelf)
@@ -321,7 +322,7 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
             } else {
                 WebBook.getChapterList(scope, bookSource, book, runPreUpdateJs, isFromBookInfo = isFromBookInfo)
                     .onSuccess(IO) {
-                        if (inBookshelf) {
+                        if (saveOnComplete || inBookshelf) {
                             saveShelfBook(oldBook, book, removeUpdateError = true)
                             replaceBookChapters(oldBook, it)
                             ReadBook.onChapterListUpdated(book)

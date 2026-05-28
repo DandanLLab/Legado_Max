@@ -1145,7 +1145,9 @@ object ReadBook : CoroutineScope by MainScope() {
         val oldBook = book.copy()
         WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->
             ensureActive()
-            if (cList.size > chapterSize) {
+            val hasNewChapters = cList.size > chapterSize
+            val latestChapterChanged = book.latestChapterTitle != oldBook.latestChapterTitle
+            if (hasNewChapters || latestChapterChanged) {
                 if (oldBook.bookUrl == book.bookUrl) {
                     appDb.bookDao.update(book)
                 } else {
@@ -1182,17 +1184,27 @@ object ReadBook : CoroutineScope by MainScope() {
                 val chapterChanged = book.durChapterIndex != durChapterIndex
                 book.durChapterIndex = durChapterIndex
                 book.durChapterPos = durChapterPos
+                var durChapterTitle: String? = book.durChapterTitle
                 if (!pageChanged || chapterChanged) {
                     appDb.bookChapterDao.getChapter(book.bookUrl, durChapterIndex)?.let {
-                        book.durChapterTitle = it.getDisplayTitle(
+                        durChapterTitle = it.getDisplayTitle(
                             ContentProcessor.get(book.name, book.origin).getTitleReplaceRules(),
                             book.getUseReplaceRule(),
                             replaceBook = book.toReplaceBook()
                         )
+                        book.durChapterTitle = durChapterTitle
                         SourceCallBack.callBackBook(SourceCallBack.SAVE_READ, bookSource, book, it, durTime.toString())
                     }
                 }
-                book.update()
+                appDb.bookDao.upReadProgress(
+                    bookUrl = book.bookUrl,
+                    durChapterTime = durTime,
+                    durChapterIndex = durChapterIndex,
+                    durChapterPos = durChapterPos,
+                    durChapterTitle = durChapterTitle,
+                    durVolumeIndex = book.durVolumeIndex,
+                    chapterInVolumeIndex = book.chapterInVolumeIndex
+                )
             }.onFailure {
                 AppLog.put("保存书籍阅读进度信息出错\n$it", it)
             }
