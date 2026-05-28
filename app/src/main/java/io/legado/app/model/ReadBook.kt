@@ -1162,14 +1162,14 @@ object ReadBook : CoroutineScope by MainScope() {
             // 智能对比：如果数据库中的章节数更大，保留数据库中的最新章节信息
             if (dbTotalChapterNumBefore > newTotalChapterNum) {
                 AppLog.put("[upToc] DB章节数($dbTotalChapterNumBefore) > 新获取章节数($newTotalChapterNum)，保留DB数据，不更新")
-                return
+                return@onSuccess
             }
             
             // 如果章节数相同，对比最新章节标题
             if (dbTotalChapterNumBefore == newTotalChapterNum && dbLatestChapterTitleBefore != null) {
                 if (dbLatestChapterTitleBefore.isNotEmpty() && newLatestChapterTitle == dbLatestChapterTitleBefore) {
                     AppLog.put("[upToc] 章节数相同($dbTotalChapterNumBefore)，最新章节也相同，无需更新")
-                    return
+                    return@onSuccess
                 }
             }
             
