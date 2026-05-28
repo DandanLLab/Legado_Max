@@ -374,8 +374,25 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         val dbBookBefore = appDb.bookDao.getBook(book.bookUrl)
         val oldLatestChapterTitle = oldBook.latestChapterTitle
         val newLatestChapterTitle = book.latestChapterTitle
+        val newTotalChapterNum = book.totalChapterNum
         val dbLatestChapterTitleBefore = dbBookBefore?.latestChapterTitle
-        AppLog.put("[saveShelfBook] 保存前对比: oldBook.latestChapterTitle=$oldLatestChapterTitle, book.latestChapterTitle=$newLatestChapterTitle, DB最新章节=$dbLatestChapterTitleBefore")
+        val dbTotalChapterNumBefore = dbBookBefore?.totalChapterNum ?: 0
+        
+        AppLog.put("[saveShelfBook] 保存前对比: oldBook.latestChapterTitle=$oldLatestChapterTitle, book.latestChapterTitle=$newLatestChapterTitle, book.totalChapterNum=$newTotalChapterNum, DB最新章节=$dbLatestChapterTitleBefore, DB总章节数=$dbTotalChapterNumBefore")
+        
+        // 智能对比：如果数据库中的章节数更大，保留数据库中的最新章节信息
+        if (dbTotalChapterNumBefore > newTotalChapterNum) {
+            AppLog.put("[saveShelfBook] DB章节数($dbTotalChapterNumBefore) > 新获取章节数($newTotalChapterNum)，保留DB数据")
+            book.totalChapterNum = dbTotalChapterNumBefore
+            book.latestChapterTitle = dbLatestChapterTitleBefore
+            book.latestChapterTime = dbBookBefore?.latestChapterTime ?: System.currentTimeMillis()
+        } else if (dbTotalChapterNumBefore == newTotalChapterNum && dbLatestChapterTitleBefore != null) {
+            // 章节数相同，对比最新章节标题
+            if (dbLatestChapterTitleBefore.isNotEmpty() && newLatestChapterTitle != dbLatestChapterTitleBefore) {
+                AppLog.put("[saveShelfBook] 章节数相同($dbTotalChapterNumBefore)，但最新章节不同，保留DB最新章节=$dbLatestChapterTitleBefore")
+                book.latestChapterTitle = dbLatestChapterTitleBefore
+            }
+        }
         
         book.sync(oldBook)
         if (removeUpdateError) {
@@ -383,7 +400,8 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         }
         
         val syncedLatestChapterTitle = book.latestChapterTitle
-        AppLog.put("[saveShelfBook] sync后: book.latestChapterTitle=$syncedLatestChapterTitle (sync是否会覆盖latestChapterTitle)")
+        val syncedTotalChapterNum = book.totalChapterNum
+        AppLog.put("[saveShelfBook] sync后: book.latestChapterTitle=$syncedLatestChapterTitle, book.totalChapterNum=$syncedTotalChapterNum")
         
         if (oldBook.bookUrl == book.bookUrl) {
             appDb.bookDao.update(book)
@@ -394,7 +412,8 @@ class BookInfoViewModel(application: Application) : BaseViewModel(application) {
         
         val dbBookAfter = appDb.bookDao.getBook(book.bookUrl)
         val dbLatestChapterTitleAfter = dbBookAfter?.latestChapterTitle
-        AppLog.put("[saveShelfBook] 保存后验证: DB最新章节=$dbLatestChapterTitleAfter, 写入值=$syncedLatestChapterTitle, 是否一致=${dbLatestChapterTitleAfter == syncedLatestChapterTitle}")
+        val dbTotalChapterNumAfter = dbBookAfter?.totalChapterNum
+        AppLog.put("[saveShelfBook] 保存后验证: DB最新章节=$dbLatestChapterTitleAfter, DB总章节数=$dbTotalChapterNumAfter, 是否一致=${dbLatestChapterTitleAfter == syncedLatestChapterTitle && dbTotalChapterNumAfter == syncedTotalChapterNum}")
     }
 
     private fun replaceBookChapters(oldBook: Book, chapters: List<BookChapter>) {
