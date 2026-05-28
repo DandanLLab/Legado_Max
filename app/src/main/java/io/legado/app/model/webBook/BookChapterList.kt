@@ -4,6 +4,7 @@ import android.text.TextUtils
 import com.script.ScriptBindings
 import com.script.rhino.RhinoScriptEngine
 import io.legado.app.R
+import io.legado.app.constant.AppLog
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
