@@ -5,6 +5,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import io.legado.app.help.book.isLocal
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
