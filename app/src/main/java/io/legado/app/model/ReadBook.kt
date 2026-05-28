@@ -1145,6 +1145,9 @@ object ReadBook : CoroutineScope by MainScope() {
         val oldBook = book.copy()
         val oldLatestChapterTitle = oldBook.latestChapterTitle
         val oldTotalChapterNum = oldBook.totalChapterNum
+        val oldTocUrl = oldBook.tocUrl
+        book.infoHtml = null
+        book.tocHtml = null
         AppLog.put("[upToc] 开始更新目录: 内存oldLatestChapterTitle=$oldLatestChapterTitle, 内存oldTotalChapterNum=$oldTotalChapterNum, chapterSize=$chapterSize")
         
         WebBook.getChapterList(this, bookSource, book).onSuccess(IO) { cList ->

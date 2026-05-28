@@ -223,10 +223,12 @@ class MainViewModel(application: Application) : BaseViewModel(application) {
             }
             kotlin.runCatching {
                 val oldBook = book.copy()
-                if (book.tocUrl.isBlank()) {
-                    WebBook.getBookInfoAwait(source, book)
-                } else {
-                    WebBook.runPreUpdateJs(source, book)
+                val oldTocUrl = book.tocUrl
+                book.infoHtml = null
+                book.tocHtml = null
+                WebBook.getBookInfoAwait(source, book)
+                if (book.tocUrl != oldTocUrl) {
+                    AppLog.put("[updateToc] tocUrl已更新: 旧=$oldTocUrl, 新=${book.tocUrl}")
                 }
                 val toc = WebBook.getChapterListAwait(source, book).getOrThrow()
                 book.sync(oldBook)
